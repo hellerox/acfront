@@ -1,30 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/hellerox/lenselocked/models"
 
-	"github.com/hellerox/lenselocked/views"
+	"github.com/hellerox/lenselocked/controllers"
+
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 )
 
-var homeView *views.View
-var contactView *views.View
-var faqView *views.View
-
-func home(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	must(homeView.Render(w, nil))
-}
-
-func contact(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	must(contactView.Render(w, nil))
-}
-func faq(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	must(faqView.Render(w, nil))
-}
+const (
+	host     = "localhost"
+	port     = 5433
+	user     = "postgres"
+	password = "your-password"
+	dbname   = "lenslocked_dev"
+)
 
 // A helper function that panics on any error
 func must(err error) {
@@ -34,15 +28,35 @@ func must(err error) {
 }
 
 func main() {
-	homeView = views.NewView("bootstrap",
-		"views/home.gohtml")
-	contactView = views.NewView("bootstrap",
-		"views/contact.gohtml")
-	faqView = views.NewView("bootstrap",
-		"views/faq.gohtml")
+	// Create a DB connection string and then use it to
+	// create our model services.
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+
+	us, err := models.NewUserService(psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer us.Close()
+	us.AutoMigrate()
+
+	usersC := controllers.NewUsers(us)
+
+	staticC := controllers.NewStatic()
+
 	r := mux.NewRouter()
-	r.HandleFunc("/", home)
-	r.HandleFunc("/faq", faq)
-	r.HandleFunc("/contact", contact)
-	http.ListenAndServe(":3000", r)
+	r.Handle("/", staticC.Home).Methods("GET")
+	r.Handle("/contact", staticC.Contact).Methods("GET")
+	r.Handle("/faq", staticC.Faq).Methods("GET")
+	r.HandleFunc("/signup", usersC.New).Methods("GET")
+	r.HandleFunc("/signup", usersC.Create).Methods("POST")
+	// NOTE: We are using the Handle function, not HandleFunc
+	r.Handle("/login", usersC.LoginView).Methods("GET")
+	r.HandleFunc("/login", usersC.Login).Methods("POST")
+	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
+	err = http.ListenAndServe(":3000", r)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
