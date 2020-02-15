@@ -1,6 +1,10 @@
 package views
 
-import "log"
+import (
+	"log"
+
+	"github.com/hellerox/lenselocked/models"
+)
 
 const (
 	AlertLvlError   = "danger"
@@ -21,8 +25,10 @@ type PublicError interface {
 
 // Data is the top level structure that views expect data
 // to come in.
+
 type Data struct {
 	Alert *Alert
+	User  *models.User
 	Yield interface{}
 }
 
