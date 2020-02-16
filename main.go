@@ -5,8 +5,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/hellerox/lenselocked/rand"
 
+	"github.com/gorilla/csrf"
+	"github.com/gorilla/mux"
 	"github.com/hellerox/lenselocked/controllers"
 	"github.com/hellerox/lenselocked/middleware"
 	"github.com/hellerox/lenselocked/models"
@@ -41,6 +43,13 @@ func main() {
 	requireUserMw := middleware.RequireUser{}
 	// The line above is the same as:
 	//   var requireUserMw middleware.RequireUser
+
+	isProd := false
+	b, err := rand.Bytes(32)
+	if err != nil {
+		panic(err)
+	}
+	csrfMw := csrf.Protect(b, csrf.Secure(isProd))
 
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
@@ -80,6 +89,10 @@ func main() {
 	r.HandleFunc("/galleries/{id:[0-9]+}/images/{filename}/delete",
 		requireUserMw.ApplyFn(galleriesC.ImageDelete)).
 		Methods("POST")
+	// Assets
+	assetHandler := http.FileServer(http.Dir("./assets/"))
+	assetHandler = http.StripPrefix("/assets/", assetHandler)
+	r.PathPrefix("/assets/").Handler(assetHandler)
 
 	// Image routes
 	imageHandler := http.FileServer(http.Dir("./images/"))
@@ -87,5 +100,5 @@ func main() {
 
 	log.Println("Starting the server on :3000...")
 
-	http.ListenAndServe(":3000", userMw.Apply(r))
+	http.ListenAndServe(":3000", csrfMw(userMw.Apply(r)))
 }

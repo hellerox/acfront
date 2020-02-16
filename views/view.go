@@ -2,10 +2,14 @@ package views
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
+
+	"github.com/gorilla/csrf"
 
 	"github.com/hellerox/lenselocked/context"
 )
@@ -27,9 +31,15 @@ func layoutFiles() []string {
 func NewView(layout string, files ...string) *View {
 	addTemplatePath(files)
 	addTemplateExt(files)
-
 	files = append(files, layoutFiles()...)
-	t, err := template.ParseFiles(files...)
+	t, err := template.New("").Funcs(template.FuncMap{
+		"csrfField": func() (template.HTML, error) {
+			return "", errors.New("csrfField is not implemented")
+		},
+		"pathEscape": func(s string) string {
+			return url.PathEscape(s)
+		},
+	}).ParseFiles(files...)
 	if err != nil {
 		panic(err)
 	}
@@ -42,6 +52,7 @@ func NewView(layout string, files ...string) *View {
 
 func (v *View) Render(w http.ResponseWriter, r *http.Request, data interface{}) {
 	w.Header().Set("Content-Type", "text/html")
+
 	var vd Data
 	switch d := data.(type) {
 	case Data:
@@ -58,7 +69,19 @@ func (v *View) Render(w http.ResponseWriter, r *http.Request, data interface{}) 
 	// Lookup and set the user to the User field
 	vd.User = context.User(r.Context())
 	var buf bytes.Buffer
-	err := v.Template.ExecuteTemplate(&buf, v.Layout, vd)
+
+	csrfField := csrf.TemplateField(r)
+	tpl := v.Template.Funcs(template.FuncMap{
+		// We can also change the return type of our function, since we no longer
+		// need to worry about errors.
+		"csrfField": func() template.HTML {
+			// We can then create this closure that returns the csrfField for
+			// any templates that need access to it.
+			return csrfField
+		},
+	})
+
+	err := tpl.ExecuteTemplate(&buf, v.Layout, vd)
 	if err != nil {
 		http.Error(w, "Something went wrong. If the problem "+
 			"persists, please email support@lenslocked.com",
