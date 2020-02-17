@@ -1,8 +1,8 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/hellerox/lenselocked/rand"
@@ -14,18 +14,26 @@ import (
 	"github.com/hellerox/lenselocked/models"
 )
 
-const (
-	host     = "localhost"
-	port     = 5433
-	user     = "postgres"
-	password = "your-password"
-	dbname   = "lenslocked_dev"
-)
-
 func main() {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-	services, err := models.NewServices(psqlInfo)
+	boolPtr := flag.Bool("prod", false, "Provide this flag "+
+		"in production. This ensures that a .config file is "+
+		"provided before the application starts.")
+	flag.Parse()
+	// boolPtr is a pointer to a boolean, so we need to use
+	// *boolPtr to get the boolean value and pass it into our
+	// LoadConfig function
+	cfg := LoadConfig(*boolPtr)
+	dbCfg := cfg.Database
+	services, err := models.NewServices(
+		models.WithGorm(dbCfg.Dialect(), dbCfg.ConnectionInfo()),
+		models.WithLogMode(!cfg.IsProd()),
+		// We want each of these services, but if we didn't need
+		// one of them we could possibly skip that config func
+		models.WithUser(cfg.Pepper, cfg.HMACKey),
+		models.WithGallery(),
+		models.WithImage(),
+	)
+
 	if err != nil {
 		panic(err)
 	}
@@ -44,12 +52,12 @@ func main() {
 	// The line above is the same as:
 	//   var requireUserMw middleware.RequireUser
 
-	isProd := false
 	b, err := rand.Bytes(32)
 	if err != nil {
 		panic(err)
 	}
-	csrfMw := csrf.Protect(b, csrf.Secure(isProd))
+	// Use the config's IsProd method instead
+	csrfMw := csrf.Protect(b, csrf.Secure(cfg.IsProd()))
 
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
@@ -98,7 +106,9 @@ func main() {
 	imageHandler := http.FileServer(http.Dir("./images/"))
 	r.PathPrefix("/images/").Handler(http.StripPrefix("/images/", imageHandler))
 
-	log.Println("Starting the server on :3000...")
-
-	http.ListenAndServe(":3000", csrfMw(userMw.Apply(r)))
+	// Our port is not provided via config, so we need to
+	// update the last bit of our main function.
+	fmt.Printf("Starting the server on :%d...\n", cfg.Port)
+	http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port),
+		csrfMw(userMw.Apply(r)))
 }

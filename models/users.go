@@ -11,11 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	userPwPepper  = "secret-random-string"
-	hmacSecretKey = "secret-hmac-key"
-)
-
 var (
 	ErrNotFound modelError = "models: resource not found"
 
@@ -80,17 +75,21 @@ type User struct {
 
 var _ UserService = &userService{}
 
-func NewUserService(db *gorm.DB) UserService {
+func NewUserService(db *gorm.DB, pepper, hmacKey string) UserService {
 	ug := &userGorm{db}
-	hmac := hash.NewHMAC(hmacSecretKey)
-	uv := newUserValidator(ug, hmac)
+	hmac := hash.NewHMAC(hmacKey)
+	// This won't compile, but we will add the pepper param
+	// to the newUserValidator function shortly
+	uv := newUserValidator(ug, hmac, pepper)
 	return &userService{
 		UserDB: uv,
+		pepper: pepper,
 	}
 }
 
 type userService struct {
 	UserDB
+	pepper string
 }
 
 // UserService is a set of methods used to manipulate and
@@ -124,7 +123,8 @@ func (us *userService) Authenticate(email,
 	}
 	err = bcrypt.CompareHashAndPassword(
 		[]byte(foundUser.PasswordHash),
-		[]byte(password+userPwPepper))
+		// Change this line to be us.pepper
+		[]byte(password+us.pepper))
 	switch err {
 	case nil:
 		return foundUser, nil
@@ -197,15 +197,6 @@ func first(db *gorm.DB, dst interface{}) error {
 		return ErrNotFound
 	}
 	return err
-}
-
-// userValidator is our validation layer that validates
-// and normalizes data before passing it on to the next
-// UserDB in our interface chain.
-type userValidator struct {
-	UserDB
-	hmac       hash.HMAC
-	emailRegex *regexp.Regexp
 }
 
 // ByRemember will hash the remember token and then call
@@ -297,7 +288,7 @@ func (uv *userValidator) bcryptPassword(user *User) error {
 		return nil
 	}
 
-	pwBytes := []byte(user.Password + userPwPepper)
+	pwBytes := []byte(user.Password + uv.pepper)
 	hashedBytes, err := bcrypt.GenerateFromPassword(pwBytes,
 		bcrypt.DefaultCost)
 	if err != nil {
@@ -372,14 +363,22 @@ func (uv *userValidator) requireEmail(user *User) error {
 	return nil
 }
 
-func newUserValidator(udb UserDB,
-	hmac hash.HMAC) *userValidator {
+func newUserValidator(udb UserDB, hmac hash.HMAC,
+	pepper string) *userValidator {
 	return &userValidator{
 		UserDB: udb,
 		hmac:   hmac,
+		pepper: pepper,
 		emailRegex: regexp.MustCompile(
 			`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
 	}
+}
+
+type userValidator struct {
+	UserDB
+	hmac       hash.HMAC
+	emailRegex *regexp.Regexp
+	pepper     string
 }
 
 func (uv *userValidator) emailFormat(user *User) error {
