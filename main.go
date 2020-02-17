@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hellerox/lenselocked/email"
+
 	"github.com/hellerox/lenselocked/rand"
 
 	"github.com/gorilla/csrf"
@@ -40,9 +42,15 @@ func main() {
 	defer services.Close()
 	services.AutoMigrate()
 
+	mgCfg := cfg.Mailgun
+	emailer := email.NewClient(
+		email.WithSender("Lenslocked.com Support", "support@"+mgCfg.Domain),
+		email.WithMailgun(mgCfg.Domain, mgCfg.APIKey, mgCfg.PublicAPIKey),
+	)
+
 	r := mux.NewRouter()
 	staticC := controllers.NewStatic()
-	usersC := controllers.NewUsers(services.User)
+	usersC := controllers.NewUsers(services.User, emailer)
 	galleriesC := controllers.NewGalleries(services.Gallery, services.Image, r)
 
 	userMw := middleware.User{

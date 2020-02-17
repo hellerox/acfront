@@ -45,13 +45,18 @@ func (c Config) IsProd() bool {
 }
 
 type Config struct {
-	Port    int    `json:"port"`
-	Env     string `json:"env"`
-	Pepper  string `json:"pepper"`
-	HMACKey string `json:"hmac_key"`
-	// We are adding the Database nested structure with this
-	// new field
+	Port     int            `json:"port"`
+	Env      string         `json:"env"`
+	Pepper   string         `json:"pepper"`
+	HMACKey  string         `json:"hmac_key"`
 	Database PostgresConfig `json:"database"`
+	Mailgun  MailgunConfig  `json:"mailgun"`
+}
+
+type MailgunConfig struct {
+	APIKey       string `json:"api_key"`
+	PublicAPIKey string `json:"public_api_key"`
+	Domain       string `json:"domain"`
 }
 
 func DefaultConfig() Config {
