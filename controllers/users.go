@@ -3,6 +3,9 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/hellerox/lenselocked/context"
 
 	"github.com/hellerox/lenselocked/rand"
 
@@ -63,7 +66,11 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/galleries", http.StatusFound)
+	alert := views.Alert{
+		Level:   views.AlertLvlSuccess,
+		Message: "Welcome to LensLocked.com!",
+	}
+	views.RedirectAlert(w, r, "/galleries", http.StatusFound, alert)
 }
 
 type LoginForm struct {
@@ -148,4 +155,26 @@ func (u *Users) signIn(w http.ResponseWriter,
 type Alert struct {
 	Level   string
 	Message string
+}
+
+// POST /logout
+func (u *Users) Logout(w http.ResponseWriter, r *http.Request) {
+	// First expire the user's cookie
+	cookie := http.Cookie{
+		Name:     "remember_token",
+		Value:    "",
+		Expires:  time.Now(),
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
+	// Then we update the user with a new remember token
+	user := context.User(r.Context())
+	// We are ignoring errors for now because they are
+	// unlikely, and even if they do occur we can't recover
+	// now that the user doesn't have a valid cookie
+	token, _ := rand.RememberToken()
+	user.Remember = token
+	u.us.Update(user)
+	// Finally send the user to the home page
+	http.Redirect(w, r, "/", http.StatusFound)
 }

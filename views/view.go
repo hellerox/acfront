@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/gorilla/csrf"
-
 	"github.com/hellerox/lenselocked/context"
+
+	"github.com/gorilla/csrf"
 )
 
 var (
@@ -66,8 +66,14 @@ func (v *View) Render(w http.ResponseWriter, r *http.Request, data interface{}) 
 			Yield: data,
 		}
 	}
-	// Lookup and set the user to the User field
+
+	// Lookup the alert and assign it if one is persisted
+	if alert := getAlert(r); alert != nil {
+		vd.Alert = alert
+		clearAlert(w)
+	}
 	vd.User = context.User(r.Context())
+
 	var buf bytes.Buffer
 
 	csrfField := csrf.TemplateField(r)
