@@ -34,7 +34,9 @@ type Users struct {
 //
 // GET /signup
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
-	u.NewView.Render(w, r, nil)
+	var form SignupForm
+	parseURLParams(r, &form)
+	u.NewView.Render(w, r, form)
 }
 
 type SignupForm struct {
