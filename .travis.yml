@@ -13,6 +13,7 @@ install:
 script:
   - GOOS=linux GOARCH=amd64 make lint test
 after_failure:
-  - reports-publisher
+  - bash <(curl -s https://codecov.io/bash)
 after_success:
   - reports-publisher
+  - bash <(curl -s https://codecov.io/bash)
