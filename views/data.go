@@ -1,9 +1,10 @@
 package views
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/hellerox/lenselocked/models"
 )

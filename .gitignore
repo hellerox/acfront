@@ -21,3 +21,6 @@ tmp/
 main
 
 images/**
+build/ac-front
+
+.config-prod
