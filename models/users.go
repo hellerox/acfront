@@ -3,6 +3,7 @@ package models
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/hellerox/lenselocked/hash"
 	"github.com/hellerox/lenselocked/rand"
@@ -78,18 +79,18 @@ var _ UserService = &userService{}
 func NewUserService(db *gorm.DB, pepper, hmacKey string) UserService {
 	ug := &userGorm{db}
 	hmac := hash.NewHMAC(hmacKey)
-	// This won't compile, but we will add the pepper param
-	// to the newUserValidator function shortly
 	uv := newUserValidator(ug, hmac, pepper)
 	return &userService{
-		UserDB: uv,
-		pepper: pepper,
+		UserDB:    uv,
+		pepper:    pepper,
+		pwResetDB: newPwResetValidator(&pwResetGorm{db}, hmac),
 	}
 }
 
 type userService struct {
 	UserDB
-	pepper string
+	pepper    string
+	pwResetDB pwResetDB
 }
 
 // UserService is a set of methods used to manipulate and
@@ -102,7 +103,72 @@ type UserService interface {
 	// ErrNotFound, ErrInvalidPassword, or another error if
 	// something goes wrong.
 	Authenticate(email, password string) (*User, error)
+	// InitiateReset will complete all the model-related tasks
+	// to start the password reset process for the user with
+	// the provided email address. Once completed, it will
+	// return the token, or an error if there was one.
+	InitiateReset(email string) (string, error)
+	// CompleteReset will complete all the model-related tasks
+	// to complete the password reset process for the user that
+	// the token matches, including updating that user's pw.
+	// If the token has expired, or if it is invalid for any
+	// other reason the ErrTokenInvalid error will be returned.
+	CompleteReset(token, newPw string) (*User, error)
 	UserDB
+}
+
+func (us *userService) InitiateReset(email string) (string, error) {
+	user, err := us.ByEmail(email)
+	if err != nil {
+		return "", err
+	}
+
+	pwr := pwReset{
+		UserID: user.ID,
+	}
+
+	if err := us.pwResetDB.Create(&pwr); err != nil {
+		return "", err
+	}
+
+	return pwr.Token, nil
+}
+
+const (
+	// Add this error to our errors
+	ErrTokenInvalid modelError = "models: token provided is not valid" //nolint: gosec
+)
+
+func (us *userService) CompleteReset(token,
+	newPw string) (*User, error) {
+	pwr, err := us.pwResetDB.ByToken(token)
+	if err != nil {
+		if err == ErrNotFound {
+			return nil, ErrTokenInvalid
+		}
+
+		return nil, err
+	}
+
+	if time.Since(pwr.CreatedAt) > (12 * time.Hour) {
+		return nil, ErrTokenInvalid
+	}
+
+	user, err := us.ByID(pwr.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	user.Password = newPw
+
+	err = us.Update(user)
+	if err != nil {
+		return nil, err
+	}
+
+	err = us.pwResetDB.Delete(pwr.ID)
+
+	return user, err
 }
 
 // Authenticate can be used to authenticate a user with the

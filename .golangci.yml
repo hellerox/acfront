@@ -1,0 +1,36 @@
+linters:
+  enable:
+    - bodyclose
+    - dogsled
+    - dupl
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - golint
+    - gosec
+    - lll
+    - maligned
+    - misspell
+    - nakedret
+    - scopelint
+    - unconvert
+    - whitespace
+    - wsl
+linters-settings:
+  lll:
+    line-length: 150
+  funlen:
+    lines: 90
+issues:
+  new-from-rev: 9582a06f5dff1f29d71aba36557dcacd9d8ea36a
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - maligned
