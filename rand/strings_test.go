@@ -6,6 +6,7 @@ func TestString(t *testing.T) {
 	type args struct {
 		nBytes int
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -14,7 +15,9 @@ func TestString(t *testing.T) {
 	}{
 		{"success", args{nBytes: 5}, "", false},
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := String(tt.args.nBytes)
 			if (err != nil) != tt.wantErr {
