@@ -1,0 +1,18 @@
+os: linux
+language: go
+go:
+  - "1.14rc1"
+branches:
+  only:
+    - master
+env:
+  global:
+    - GOLANGCILINT_VERSION='v1.23.3'
+install:
+  - echo "Install will do nothing"
+script:
+  - GOOS=linux GOARCH=amd64 make lint test
+after_failure:
+  - reports-publisher
+after_success:
+  - reports-publisher
