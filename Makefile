@@ -15,10 +15,7 @@ build:
 run: build
 	./build/${APPNAME}
 
-lint:
-	./scripts/lint
-
 test:
-	./scripts/unit-test
+	./scripts/go.test.sh
 
-.PHONY: build run lint test travis-build
+.PHONY: build run test travis-build
