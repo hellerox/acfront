@@ -2,12 +2,13 @@ os: linux
 language: go
 go:
   - "1.14rc1"
+  - tip
 branches:
   only:
     - master
 env:
   global:
-    - GOLANGCILINT_VERSION='v1.23.3'
+    - GOLANGCILINT_VERSION='v1.23.6'
 install:
   - echo "Install will do nothing"
 script:

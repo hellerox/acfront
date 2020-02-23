@@ -24,3 +24,5 @@ images/**
 build/ac-front
 
 .config-prod
+
+coverage.txt

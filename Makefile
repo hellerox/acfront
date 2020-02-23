@@ -19,6 +19,6 @@ lint:
 	./scripts/lint
 
 test:
-	./scripts/unit-test
+	./scripts/go.test.sh
 
 .PHONY: build run lint test travis-build
