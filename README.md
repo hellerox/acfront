@@ -1,5 +1,6 @@
-# lenselocked
+# acfront
 
 
-## Exercises of Web Development With Go by John Calhoun
+## My attempt to modify lenselocked example to create AC-Front
+
 
